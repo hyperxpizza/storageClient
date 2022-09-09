@@ -17,6 +17,10 @@ func TestStorageClient(t *testing.T) {
 	lgr := logrus.New()
 	cfg := StorageClientConfig{}
 	cfg.Endpoint = "0.0.0.0:9000"
+	cfg.AccessKeyID = "minio"
+	cfg.SecretAccessKey = "minio123"
+	cfg.Secure = false
+	cfg.Token = ""
 	sc, err := New(ctx, lgr, cfg)
 	if err != nil {
 		t.Error(err)
@@ -24,6 +28,11 @@ func TestStorageClient(t *testing.T) {
 
 	err = sc.CreateBucket(bucketName)
 	if err != nil {
-
+		t.Error(err)
 	}
+
+	defer func() {
+		err = sc.DeleteBucket(bucketName)
+		t.Error(err)
+	}()
 }
