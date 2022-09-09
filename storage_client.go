@@ -22,6 +22,11 @@ type StorageClientConfig struct {
 }
 
 type Client interface {
+	GetBucketContents(bucket string, filenames []string) (*BulkObjectResponse, error)
+	BulkUploadFromMultipart(files []*multipart.FileHeader, bucket string) error
+	CreateBucket(name string) error
+	DeleteBucket(name string) error
+	GetFile(bucket, file string)
 }
 
 type StorageClient struct {
@@ -91,8 +96,11 @@ func (s *StorageClient) GetBucketContents(bucket string, filenames []string) (*B
 			response.addFile(name, buf)
 		}(name)
 	}
-
 	wg.Wait()
+
+	if len(getErr.FailedFiles) > 0 {
+		return nil, getErr
+	}
 
 	return response, nil
 }
@@ -138,6 +146,10 @@ func (s *StorageClient) BulkUploadFromMultipart(files []*multipart.FileHeader, b
 
 func (s *StorageClient) CreateBucket(name string) error {
 	return s.mc.MakeBucket(s.ctx, name, minio.MakeBucketOptions{})
+}
+
+func (s *StorageClient) DeleteBucket(name string) error {
+	return s.mc.RemoveBucket(s.ctx, name)
 }
 
 func (s *StorageClient) GetFile(bucket, file string) (*minio.Object, error) {

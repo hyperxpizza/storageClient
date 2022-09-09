@@ -1,3 +1,21 @@
-version: '3.9'
+version: '3.7'
 services:
   storage:
+    image: quay.io/minio/minio:RELEASE.2022-09-07T22-25-02Z
+    command: server --console-address "0.0.0.0:9001" /data
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    hostname: storage
+    volumes:
+      - data:/data 
+volumes:
+  data:
