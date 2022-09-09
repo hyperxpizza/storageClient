@@ -10,7 +10,6 @@ import (
 
 	minio "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/sirupsen/logrus"
 )
 
 type StorageClientConfig struct {
@@ -26,17 +25,16 @@ type Client interface {
 	BulkUploadFromMultipart(files []*multipart.FileHeader, bucket string) error
 	CreateBucket(name string) error
 	DeleteBucket(name string) error
-	GetFile(bucket, file string)
+	GetFile(bucket, file string) (*minio.Object, error)
 }
 
 type StorageClient struct {
 	ctx context.Context
-	lgr logrus.FieldLogger
 	mc  *minio.Client
 }
 
 type BulkObjectResponse struct {
-	Objects map[string]*bytes.Buffer
+	Objects map[string]*bytes.Buffer `json:"files"`
 	mutex   sync.Mutex
 }
 
@@ -54,7 +52,7 @@ func (r *BulkObjectResponse) addFile(name string, buf *bytes.Buffer) {
 	r.Objects[name] = buf
 }
 
-func New(ctx context.Context, lgr logrus.FieldLogger, cfg StorageClientConfig) (*StorageClient, error) {
+func New(ctx context.Context, cfg StorageClientConfig) (*StorageClient, error) {
 	mc, err := minio.New(cfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKeyID, cfg.SecretAccessKey, cfg.Token),
 		Secure: cfg.Secure,
@@ -65,7 +63,6 @@ func New(ctx context.Context, lgr logrus.FieldLogger, cfg StorageClientConfig) (
 
 	return &StorageClient{
 		ctx: ctx,
-		lgr: lgr.WithField("module", "storage-client"),
 		mc:  mc,
 	}, nil
 }

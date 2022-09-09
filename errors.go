@@ -7,7 +7,7 @@ import (
 )
 
 type BulkFileError struct {
-	FailedFiles map[string]error
+	FailedFiles map[string]error `json:"failedFiles"`
 	mutex       sync.Mutex
 	msgBase     string
 }
