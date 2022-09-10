@@ -67,8 +67,8 @@ func New(ctx context.Context, cfg StorageClientConfig) (*StorageClient, error) {
 	}, nil
 }
 
-func (s *StorageClient) GetBucketContents(bucket string, filenames []string) (*BulkObjectResponse, error) {
-	bucketExists, err := s.mc.BucketExists(s.ctx, bucket)
+func (s *StorageClient) GetBucketContents(ctx context.Context, bucket string, filenames []string) (*BulkObjectResponse, error) {
+	bucketExists, err := s.mc.BucketExists(ctx, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (s *StorageClient) GetBucketContents(bucket string, filenames []string) (*B
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			buf, err := s.handleBulkFile(bucket, name)
+			buf, err := s.handleBulkFile(ctx, bucket, name)
 			if err != nil {
 				getErr.addFailedFile(name, err)
 				return
@@ -102,7 +102,7 @@ func (s *StorageClient) GetBucketContents(bucket string, filenames []string) (*B
 	return response, nil
 }
 
-func (s *StorageClient) BulkUploadFromMultipart(files []*multipart.FileHeader, bucket string) error {
+func (s *StorageClient) BulkUploadFromMultipart(ctx context.Context, files []*multipart.FileHeader, bucket string) error {
 
 	//check if bucket exists
 	bucketExists, err := s.mc.BucketExists(s.ctx, bucket)
@@ -125,7 +125,7 @@ func (s *StorageClient) BulkUploadFromMultipart(files []*multipart.FileHeader, b
 		wg.Add(1)
 		go func(file *multipart.FileHeader) {
 			defer wg.Done()
-			if err := s.handleMultipartFile(file, bucket); err != nil {
+			if err := s.handleMultipartFile(ctx, file, bucket); err != nil {
 				uploadErr.addFailedFile(file.Filename, err)
 				return
 			}
@@ -153,7 +153,7 @@ func (s *StorageClient) GetFile(bucket, file string) (*minio.Object, error) {
 	return s.mc.GetObject(s.ctx, bucket, file, minio.GetObjectOptions{})
 }
 
-func (s *StorageClient) handleMultipartFile(file *multipart.FileHeader, bucketName string) error {
+func (s *StorageClient) handleMultipartFile(ctx context.Context, file *multipart.FileHeader, bucketName string) error {
 	buf := bytes.NewBuffer([]byte{})
 	src, err := file.Open()
 	if err != nil {
@@ -164,7 +164,7 @@ func (s *StorageClient) handleMultipartFile(file *multipart.FileHeader, bucketNa
 		return err
 	}
 
-	_, err = s.mc.PutObject(s.ctx, bucketName, file.Filename, buf, file.Size, minio.PutObjectOptions{})
+	_, err = s.mc.PutObject(ctx, bucketName, file.Filename, buf, file.Size, minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -172,8 +172,8 @@ func (s *StorageClient) handleMultipartFile(file *multipart.FileHeader, bucketNa
 	return nil
 }
 
-func (s *StorageClient) handleBulkFile(bucket, filename string) (*bytes.Buffer, error) {
-	obj, err := s.mc.GetObject(s.ctx, bucket, filename, minio.GetObjectOptions{})
+func (s *StorageClient) handleBulkFile(ctx context.Context, bucket, filename string) (*bytes.Buffer, error) {
+	obj, err := s.mc.GetObject(ctx, bucket, filename, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
