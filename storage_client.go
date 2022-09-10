@@ -21,8 +21,8 @@ type StorageClientConfig struct {
 }
 
 type Client interface {
-	GetBucketContents(bucket string, filenames []string) (*BulkObjectResponse, error)
-	BulkUploadFromMultipart(files []*multipart.FileHeader, bucket string) error
+	GetBucketContents(ctx context.Context, bucket string, filenames []string) (*BulkObjectResponse, error)
+	BulkUploadFromMultipart(ctx context.Context, files []*multipart.FileHeader, bucket string) error
 	CreateBucket(name string) error
 	DeleteBucket(name string) error
 	GetFile(bucket, file string) (*minio.Object, error)
@@ -68,7 +68,14 @@ func New(ctx context.Context, cfg StorageClientConfig) (*StorageClient, error) {
 }
 
 func (s *StorageClient) GetBucketContents(ctx context.Context, bucket string, filenames []string) (*BulkObjectResponse, error) {
-	bucketExists, err := s.mc.BucketExists(ctx, bucket)
+	var ctx2 context.Context
+	if ctx == nil {
+		ctx2 = s.ctx
+	} else {
+		ctx2 = ctx
+	}
+
+	bucketExists, err := s.mc.BucketExists(ctx2, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +91,7 @@ func (s *StorageClient) GetBucketContents(ctx context.Context, bucket string, fi
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			buf, err := s.handleBulkFile(ctx, bucket, name)
+			buf, err := s.handleBulkFile(ctx2, bucket, name)
 			if err != nil {
 				getErr.addFailedFile(name, err)
 				return
@@ -104,15 +111,22 @@ func (s *StorageClient) GetBucketContents(ctx context.Context, bucket string, fi
 
 func (s *StorageClient) BulkUploadFromMultipart(ctx context.Context, files []*multipart.FileHeader, bucket string) error {
 
+	var ctx2 context.Context
+	if ctx == nil {
+		ctx2 = s.ctx
+	} else {
+		ctx2 = ctx
+	}
+
 	//check if bucket exists
-	bucketExists, err := s.mc.BucketExists(s.ctx, bucket)
+	bucketExists, err := s.mc.BucketExists(ctx2, bucket)
 	if err != nil {
 		return err
 	}
 
 	//if bucket does not exist, create one
 	if !bucketExists {
-		err := s.mc.MakeBucket(s.ctx, bucket, minio.MakeBucketOptions{})
+		err := s.mc.MakeBucket(ctx2, bucket, minio.MakeBucketOptions{})
 		if err != nil {
 			return err
 		}
@@ -125,7 +139,7 @@ func (s *StorageClient) BulkUploadFromMultipart(ctx context.Context, files []*mu
 		wg.Add(1)
 		go func(file *multipart.FileHeader) {
 			defer wg.Done()
-			if err := s.handleMultipartFile(ctx, file, bucket); err != nil {
+			if err := s.handleMultipartFile(ctx2, file, bucket); err != nil {
 				uploadErr.addFailedFile(file.Filename, err)
 				return
 			}
